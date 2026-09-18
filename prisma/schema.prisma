@@ -1,0 +1,50 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// 1. Allowed Expense Categories
+enum Category {
+  FOOD_DINING
+  TRAVEL_TRANSPORT
+  OFFICE_SUPPLIES
+  SOFTWARE_TECH
+  UTILITIES
+  HEALTHCARE
+  ENTERTAINMENT
+  OTHER
+}
+
+// 2. The Main Expense Record
+model Expense {
+  id           String        @id @default(cuid())
+  merchantName String
+  date         DateTime
+  totalAmount  Float
+  taxAmount    Float?        @default(0)
+  currency     String        @default("USD")
+  category     Category      @default(OTHER)
+  receiptUrl   String?       // Image preview link or data
+  notes        String?
+  items        ExpenseItem[]
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+
+  @@index([date])
+  @@index([category])
+}
+
+// 3. Individual Line Items (Linked to Expense)
+model ExpenseItem {
+  id        String   @id @default(cuid())
+  expenseId String
+  name      String
+  price     Float
+  quantity  Int      @default(1)
+  expense   Expense  @relation(fields: [expenseId], references: [id], onDelete: Cascade)
+
+  @@index([expenseId])
+}
