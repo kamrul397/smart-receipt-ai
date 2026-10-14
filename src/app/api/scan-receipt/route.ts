@@ -1,4 +1,4 @@
-﻿import { NextRequest, NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { GoogleGenerativeAI } from "@google/generative-ai";
 import { ReceiptSchema } from "@/types/receipt";
 
@@ -24,9 +24,21 @@ export async function POST(req: NextRequest) {
         const genAI = new GoogleGenerativeAI(apiKey);
 
         const prompt = `
-Analyze this receipt or invoice image carefully.
-Extract the details in strict JSON matching this structure:
+You are a financial document auditor and OCR classifier.
+First, check whether the image is actually a receipt, invoice, bill, cash register ticket, payment slip, or proof of purchase.
+
+Case 1 - The image is NOT a receipt, bill, or invoice:
+(For example: photos of pets, cars, selfies, landscapes, food dishes without receipts, memes, unrelated graphics, or general text documents that are not financial bills).
+Return strictly this JSON:
 {
+  "isReceipt": false,
+  "reason": "This image does not appear to be a receipt or bill."
+}
+
+Case 2 - The image IS a receipt, bill, or invoice:
+Extract the financial details in strict JSON matching this structure:
+{
+  "isReceipt": true,
   "merchantName": string,
   "date": string (YYYY-MM-DD format. If year is missing, assume current year),
   "totalAmount": number (pure numeric float without currency symbols like $),
@@ -49,7 +61,7 @@ Rules:
 `;
 
         // Production Resilience: Fallback list in case of temporary 503 spikes
-        const candidateModels = ["gemini-flash-latest", "gemini-3.6-flash", "gemini-3.5-flash"];
+        const candidateModels = ["gemini-flash-latest", "gemini-3.8-flash", "gemini-3.6-flash"];
         let result = null;
         let lastError = null;
 
@@ -77,6 +89,8 @@ Rules:
             } catch (err: any) {
                 console.warn(`Model ${modelName} busy or error: ${err.message}. Trying next fallback...`);
                 lastError = err;
+                // Brief pause before trying the next fallback model
+                await new Promise((resolve) => setTimeout(resolve, 800));
             }
         }
 
@@ -86,6 +100,18 @@ Rules:
 
         const rawResponseText = result.response.text();
         const rawJson = JSON.parse(rawResponseText);
+
+        // Guardrail: Check if the AI identified the image as non-receipt
+        if (rawJson.isReceipt === false) {
+            return NextResponse.json(
+                {
+                    success: false,
+                    notReceipt: true,
+                    error: "Please upload a receipt or bill. The uploaded image does not appear to be a receipt or invoice.",
+                },
+                { status: 422 }
+            );
+        }
 
         // Validate using Zod
         const validatedData = ReceiptSchema.parse(rawJson);

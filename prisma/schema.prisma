@@ -6,7 +6,20 @@ datasource db {
   provider = "postgresql"
 }
 
-// 1. Allowed Expense Categories
+// 1. User Model for Authentication
+model User {
+  id        String    @id @default(cuid())
+  name      String?
+  email     String    @unique
+  password  String    // Hashed password (never plain text!)
+  expenses  Expense[]
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+
+  @@index([email])
+}
+
+// 2. Allowed Expense Categories
 enum Category {
   FOOD_DINING
   TRAVEL_TRANSPORT
@@ -18,26 +31,29 @@ enum Category {
   OTHER
 }
 
-// 2. The Main Expense Record
+// 3. The Main Expense Record (Linked to User)
 model Expense {
   id           String        @id @default(cuid())
+  userId       String?       // Foreign key pointing to User
+  user         User?         @relation(fields: [userId], references: [id], onDelete: Cascade)
   merchantName String
   date         DateTime
   totalAmount  Float
   taxAmount    Float?        @default(0)
   currency     String        @default("USD")
   category     Category      @default(OTHER)
-  receiptUrl   String?       // Image preview link or data
+  receiptUrl   String?
   notes        String?
   items        ExpenseItem[]
   createdAt    DateTime      @default(now())
   updatedAt    DateTime      @updatedAt
 
+  @@index([userId])
   @@index([date])
   @@index([category])
 }
 
-// 3. Individual Line Items (Linked to Expense)
+// 4. Individual Line Items (Linked to Expense)
 model ExpenseItem {
   id        String   @id @default(cuid())
   expenseId String

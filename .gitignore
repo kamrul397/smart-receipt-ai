@@ -1,4 +1,4 @@
-﻿# Dependencies
+# Dependencies
 /node_modules
 /.pnp
 .pnp.*
@@ -63,3 +63,5 @@ yarn-error.log*
 # Scratch & Temporary Testing Files
 sample-receipt.html
 test-*.js
+scratch/
+

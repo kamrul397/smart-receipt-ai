@@ -1,19 +1,31 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { getAuthUser } from "@/lib/auth";
 
-// GET /api/expenses -> Fetch all expenses (with optional category filter)
+// GET /api/expenses -> Fetch only the logged-in user's expenses
 export async function GET(req: NextRequest) {
     try {
+        const auth = await getAuthUser();
+        if (!auth) {
+            return NextResponse.json(
+                { error: "Unauthorized. Please log in to view expenses." },
+                { status: 401 }
+            );
+        }
+
         const { searchParams } = new URL(req.url);
         const category = searchParams.get("category");
 
         const expenses = await prisma.expense.findMany({
-            where: category && category !== "ALL" ? { category: category as any } : undefined,
+            where: {
+                userId: auth.userId, // User Data Isolation!
+                ...(category && category !== "ALL" ? { category: category as any } : {}),
+            },
             include: {
-                items: true, // Relational join to include all line items
+                items: true,
             },
             orderBy: {
-                date: "desc", // Most recent transactions first
+                date: "desc",
             },
         });
 
@@ -24,9 +36,17 @@ export async function GET(req: NextRequest) {
     }
 }
 
-// POST /api/expenses -> Save a confirmed scanned receipt
+// POST /api/expenses -> Save receipt linked to the logged-in user
 export async function POST(req: NextRequest) {
     try {
+        const auth = await getAuthUser();
+        if (!auth) {
+            return NextResponse.json(
+                { error: "Unauthorized. Please log in to save expenses." },
+                { status: 401 }
+            );
+        }
+
         const body = await req.json();
         const {
             merchantName,
@@ -40,9 +60,9 @@ export async function POST(req: NextRequest) {
             items,
         } = body;
 
-        // Relational insert: creates Expense AND nested ExpenseItem records atomically
         const expense = await prisma.expense.create({
             data: {
+                userId: auth.userId, // Automatically attached to current user!
                 merchantName,
                 date: new Date(date),
                 totalAmount: Number(totalAmount),
@@ -70,22 +90,32 @@ export async function POST(req: NextRequest) {
         return NextResponse.json({ error: error.message }, { status: 500 });
     }
 }
-// DELETE /api/expenses?id=... -> Delete an expense with cascade
+
+// DELETE /api/expenses?id=... -> Delete only if it belongs to current user
 export async function DELETE(req: NextRequest) {
-  try {
-    const { searchParams } = new URL(req.url);
-    const id = searchParams.get("id");
-    if (!id) {
-      return NextResponse.json({ error: "Expense ID is required." }, { status: 400 });
+    try {
+        const auth = await getAuthUser();
+        if (!auth) {
+            return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+        }
+
+        const { searchParams } = new URL(req.url);
+        const id = searchParams.get("id");
+        if (!id) {
+            return NextResponse.json({ error: "Expense ID is required." }, { status: 400 });
+        }
+
+        // Verify ownership before deleting
+        const expense = await prisma.expense.findUnique({ where: { id } });
+        if (!expense || expense.userId !== auth.userId) {
+            return NextResponse.json({ error: "Expense not found or unauthorized." }, { status: 404 });
+        }
+
+        await prisma.expense.delete({ where: { id } });
+
+        return NextResponse.json({ success: true });
+    } catch (error: any) {
+        console.error("Delete Expense Error:", error);
+        return NextResponse.json({ error: error.message }, { status: 500 });
     }
-
-    await prisma.expense.delete({
-      where: { id },
-    });
-
-    return NextResponse.json({ success: true });
-  } catch (error: any) {
-    console.error("Delete Expense Error:", error);
-    return NextResponse.json({ error: error.message }, { status: 500 });
-  }
 }
