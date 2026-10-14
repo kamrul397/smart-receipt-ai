@@ -1,107 +1,60 @@
-﻿# 🧾 SmartReceipt AI — Multimodal Financial Document Parser & Expense Auditor
+# SmartReceipt AI
 
-![Next.js 16](https://img.shields.io/badge/Next.js-16-black?style=for-the-badge&logo=next.js)
-![React 19](https://img.shields.io/badge/React-19-blue?style=for-the-badge&logo=react)
-![TypeScript](https://img.shields.io/badge/TypeScript-5.0-3178C6?style=for-the-badge&logo=typescript)
-![PostgreSQL](https://img.shields.io/badge/PostgreSQL-Neon-336791?style=for-the-badge&logo=postgresql)
-![Prisma](https://img.shields.io/badge/Prisma-7.0-2D3748?style=for-the-badge&logo=prisma)
-![Gemini AI](https://img.shields.io/badge/Google_Gemini-Vision-4285F4?style=for-the-badge&logo=google)
-![Zod](https://img.shields.io/badge/Zod-Type_Safety-3E67B1?style=for-the-badge&logo=zod)
+> Scan paper receipts or digital invoices into structured data with AI, review line items side-by-side, and track expenses without manual entry.
 
-An enterprise-grade, full-stack financial document extraction and auditing platform. **SmartReceipt AI** converts unstructured paper receipts and PDF invoices into 100% type-safe, database-persisted expense records using **Google Gemini Vision**, runtime **Zod** schema enforcement, and a **Human-in-the-Loop split-screen reconciliation** interface.
+**Live Demo:** [smart-receipt-ai.vercel.app](https://smart-receipt-ai.vercel.app)
 
 ---
 
-## 🌟 Key Features
+## What It Does
 
-* **👁️ Multimodal Visual Extraction:** Reads pixels directly from JPG, PNG, and PDF receipts to extract store name, purchase date, line items, taxes, currency, and categorized spending without brittle regex OCR.
-* **🛡️ Strict Runtime Type Safety (Zod):** Implements bidirectional TypeScript validation via Zod schemas to guarantee numbers are floats, dates follow ISO formats, and categories map to standardized enums.
-* **⚡ Graceful Model Fallback:** Built with production resilience against 503 traffic spikes using an automated multi-model fallback strategy (`gemini-flash-latest` → `gemini-3.6-flash` → `gemini-3.5-flash`).
-* **⚖️ Human-in-the-Loop Reconciliation:** Split-screen UI displaying the original receipt on the left and an interactive form on the right. Users can add, edit, or remove line items with real-time grand total recalculation before saving.
-* **🗄️ Normalized PostgreSQL Schema (Prisma ORM):** Clean 1-to-many relationship (`Expense` → `ExpenseItem`) with cascading deletes (`onDelete: Cascade`), CUID identifiers, and B-Tree indexes on `date` and `category`.
-* **📊 Live Analytics Dashboard:** Interactive Recharts category spending donut chart, summary financial metrics, and a searchable, filterable expense history table.
+SmartReceipt AI takes photos or PDFs of receipts and uses Google Gemini Vision to extract the store name, date, line items, taxes, and total amount.
 
----
-
-## 🏗️ System Architecture
-
-```
-[User Uploads Receipt / Invoice]
-             │ (Drag & drop PNG/JPG/PDF)
-             ▼
-[Frontend: Base64 Encoding]
-             │ (FileReader API)
-             ▼
-[API Gateway: POST /api/scan-receipt]
-             │
-             ├──► [Google Gemini Vision API] (Multimodal Prompting)
-             │         │ (responseMimeType: application/json)
-             │         ▼
-             ├──► [Zod Schema Validation] (ReceiptSchema.parse)
-             │         │
-             ▼         ▼
-[Split-Screen Reconciliation Screen]
-   ├── Left:  Original Document Image Preview
-   └── Right: Editable Form (Live Total Recalculation)
-             │
-             ▼ (User clicks "Confirm & Save")
-[API Gateway: POST /api/expenses]
-             │
-             ▼
-[PostgreSQL Database (Neon)] ◄── Prisma ORM
-   ├── Expense (Header, Date, Tax, Total, Category)
-   └── ExpenseItem (1-to-many Line Items with Cascade)
-             │
-             ▼
-[Analytics Dashboard]
-   ├── Summary Cards (Total Spent, Receipts Audited)
-   ├── Category Spending Donut Chart (Recharts)
-   └── Searchable & Filterable History Table
-```
+* **No account required to scan:** Anyone can drop a receipt, get instant extracted data, and download or print a PDF voucher right away.
+* **Member accounts:** Sign up to save receipts to your personal dashboard, track category spending charts, and export monthly CSV or consolidated PDF reports.
+* **Document guardrails:** Automatically checks if an uploaded image is actually a receipt and warns you if it isn't.
+* **Manual entry:** Option to log cash transactions or lost receipts by hand.
+* **Split-screen review:** View the original receipt alongside the extracted items to fix or edit any numbers before saving.
 
 ---
 
-## 🛠️ Tech Stack
+## Tech Stack
 
-* **Frontend:** Next.js 16 (App Router, Server & Client Components), React 19, Tailwind CSS v4, Lucide Icons, Recharts.
-* **Backend:** Next.js Route Handlers, Node.js.
-* **AI & Validation:** `@google/generative-ai` (Gemini 1.5/3.6 Flash), `zod`.
-* **Database & ORM:** PostgreSQL (Neon Serverless), Prisma ORM 7 (`@prisma/adapter-pg`, `pg`).
+* **Framework:** Next.js 16 (App Router), React 19
+* **Styling:** Tailwind CSS v4, Lucide Icons
+* **AI:** Google Gemini Flash API (`@google/generative-ai`)
+* **Database & ORM:** PostgreSQL (Neon serverless), Prisma 7
+* **Validation & Auth:** Zod, custom JWT with HTTP-only cookies & Bcrypt
 
 ---
 
-## 🚀 Getting Started Locally
+## Local Setup
 
-### 1. Clone the repository
+### 1. Clone & install dependencies
 ```bash
 git clone https://github.com/kamrul397/smart-receipt-ai.git
 cd smart-receipt-ai
-```
-
-### 2. Install dependencies
-```bash
 npm install
 ```
 
-### 3. Configure Environment Variables
-Create a `.env` file in the root folder:
+### 2. Environment variables
+Create a `.env` file in the root directory:
 ```env
 DATABASE_URL="your_postgresql_connection_string"
-GEMINI_API_KEY="your_google_ai_studio_api_key"
+GEMINI_API_KEY="your_gemini_api_key"
+JWT_SECRET="your_random_secret_key"
 ```
 
-### 4. Run Prisma Migrations
+### 3. Sync database & run dev server
 ```bash
-npx prisma migrate dev
-```
-
-### 5. Start the Development Server
-```bash
+npx prisma db push
 npm run dev
 ```
-Open [http://localhost:3000](http://localhost:3000) to view the application.
+
+Open [http://localhost:3000](http://localhost:3000) in your browser.
 
 ---
 
-## 📄 License
-This project is open-source and available under the [MIT License](LICENSE).
+## License
+
+MIT
